@@ -1,7 +1,9 @@
 import sys
+import socket
 from pathlib import Path
 from datetime import datetime
 
+from mitmproxy import http
 from PySide6.QtCore import Qt, Slot
 from PySide6.QtGui import QPixmap
 from PySide6.QtNetwork import QTcpSocket, QTcpServer, QHostAddress
@@ -82,7 +84,7 @@ class Window(QMainWindow):
         length = self.sock.bytesAvailable()
         # noinspection PyTypeChecker
         data = bytes(self.sock.read(length)).decode()
-        self.log_view.insertPlainText(f"\n\n{'-'*10} [{datetime.now()}] {'-'*10}\n{data}")
+        self.log_view.insertPlainText(f"\n\n{'-' * 10} [{datetime.now()}] {'-' * 10}\n{data}")
         self.log_view.ensureCursorVisible()
 
 
@@ -180,6 +182,15 @@ class StatusBar(QHBoxLayout):
         self.status.setStyleSheet("color: #aaa")
 
         self.addWidget(self.status)
+
+
+def request(flow: http.HTTPFlow):
+    url = flow.request.pretty_url
+    headers = "\n".join([f"{key}: {val}" for key, val in flow.request.headers.items()])
+    # noinspection PyTypeChecker
+    with socket.socket() as sock:
+        sock.connect(("127.0.0.1", 54321))
+        sock.sendall(bytes(f"URL: {url}\nHeaders:\n{headers}", "utf8"))
 
 
 if __name__ == "__main__":
