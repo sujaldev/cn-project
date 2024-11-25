@@ -82,7 +82,8 @@ class Window(QMainWindow):
         length = self.sock.bytesAvailable()
         # noinspection PyTypeChecker
         data = bytes(self.sock.read(length)).decode()
-        self.log_view.insertPlainText(f"[{datetime.now()}]: {data}")
+        self.log_view.insertPlainText(f"\n\n{'-'*10} [{datetime.now()}] {'-'*10}\n{data}")
+        self.log_view.ensureCursorVisible()
 
 
 class Toolbar(QVBoxLayout):
