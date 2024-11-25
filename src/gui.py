@@ -1,10 +1,13 @@
 import sys
 from pathlib import Path
+from datetime import datetime
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, Slot
 from PySide6.QtGui import QPixmap
+from PySide6.QtNetwork import QTcpSocket, QTcpServer, QHostAddress
 from PySide6.QtWidgets import (
-    QApplication, QMainWindow, QWidget, QStackedLayout, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QLineEdit
+    QApplication, QMainWindow, QWidget, QStackedLayout, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QLineEdit,
+    QTextEdit
 )
 
 
@@ -25,14 +28,14 @@ class Window(QMainWindow):
 
         self.content_view = QStackedLayout()
         self.blank_screen = BlankScreen(self)
-        self.list_view = QWidget(self)
+        self.log_view = LogView(self)
         self.content_view.addWidget(self.blank_screen)
-        self.content_view.addWidget(self.list_view)
+        self.content_view.addWidget(self.log_view)
 
         self.status_bar = StatusBar()
 
         self.main_layout.addLayout(self.toolbar)
-        self.main_layout.addWidget(self.blank_screen)
+        self.main_layout.addLayout(self.content_view)
         self.main_layout.addLayout(self.status_bar)
 
         self.parent_widget.setLayout(self.main_layout)
@@ -40,6 +43,12 @@ class Window(QMainWindow):
         self.setCentralWidget(self.parent_widget)
         self.toolbar.start_btn.toggled.connect(self.handle_start_stop)
 
+        # IO
+        self.server = QTcpServer(self)
+        self.sock: QTcpSocket | None = None
+        self.start_internal_io_server()
+
+    @Slot()
     def handle_start_stop(self, started):
         if started:
             self.content_view.setCurrentIndex(1)
@@ -52,6 +61,28 @@ class Window(QMainWindow):
             self.status_bar.status.setText(
                 "Proxy is not running."
             )
+
+    def start_internal_io_server(self):
+        default_port = 54321
+        self.server.setMaxPendingConnections(1)
+        self.server.newConnection.connect(self.handle_inbound_conn)
+        if not self.server.listen(QHostAddress.Any, default_port):
+            self.status_bar.status.setText(
+                "An error occurred while setting up the proxy, please restart."
+            )
+
+    @Slot()
+    def handle_inbound_conn(self):
+        self.sock = self.server.nextPendingConnection()
+        if self.sock:
+            self.sock.readyRead.connect(self.handle_rx)
+
+    @Slot()
+    def handle_rx(self):
+        length = self.sock.bytesAvailable()
+        # noinspection PyTypeChecker
+        data = bytes(self.sock.read(length)).decode()
+        self.log_view.insertPlainText(f"[{datetime.now()}]: {data}")
 
 
 class Toolbar(QVBoxLayout):
@@ -70,9 +101,11 @@ class Toolbar(QVBoxLayout):
         conf_layout = QHBoxLayout()
         self.listen_host_label = QLabel("Listen Host: ")
         self.listen_host_input = QLineEdit("127.0.0.1")
+        self.listen_host_input.setEnabled(False)
 
         self.listen_port_label = QLabel("Listen Port: ")
         self.listen_port_input = QLineEdit("8080")
+        self.listen_port_input.setEnabled(False)
 
         self.start_btn = QPushButton("Start")
         self.start_btn.setCheckable(True)
@@ -89,13 +122,13 @@ class Toolbar(QVBoxLayout):
     def handle_start_stop(self, started):
         if started:
             self.start_btn.setText("Stop")
-            self.listen_host_input.setEnabled(False)
-            self.listen_port_input.setEnabled(False)
+            # self.listen_host_input.setEnabled(False)
+            # self.listen_port_input.setEnabled(False)
             self.search_bar.setEnabled(True)
         else:
             self.start_btn.setText("Start")
-            self.listen_host_input.setEnabled(True)
-            self.listen_port_input.setEnabled(True)
+            # self.listen_host_input.setEnabled(True)
+            # self.listen_port_input.setEnabled(True)
             self.search_bar.setEnabled(False)
 
 
@@ -130,6 +163,12 @@ class BlankScreen(QWidget):
         layout.addWidget(authors)
 
         self.setLayout(layout)
+
+
+class LogView(QTextEdit):
+    def __init__(self, parent):
+        super().__init__(parent)
+        self.setReadOnly(True)
 
 
 class StatusBar(QHBoxLayout):
