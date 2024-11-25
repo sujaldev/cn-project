@@ -149,7 +149,7 @@ class BlankScreen(QWidget):
         project_title.setStyleSheet("font-size: 18px; font-weight: 500; color: #ccc")
 
         authors = QLabel(
-            "Dhruv Grover (003), Pranav Bisht (027), Sujal Singh (041), Prashant Pulkit (045), Ocean Bhatnagar (061)"
+            "Dhruv Grover (006), Pranav Bisht (027), Sujal Singh (041), Prashant Pulkit (045), Ocean Bhatnagar (063)"
         )
         authors.setStyleSheet("color: #ccc")
 
